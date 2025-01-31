@@ -1,1 +1,2 @@
 solady=./lib/solady/src
+morpho=lib/morpho-blue/src
