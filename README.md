@@ -34,10 +34,11 @@ The flow is as follows:
 - Customizable collaterals
 - Customizable DeFi vaults
 - Customizable fees
+- Yield sharing mechanism
 
 ## Contracts
 
-- [**Factory**](./src/Factory.sol): The main factory contract to create a new stablecoin
+- [**Factory**](./src/Factory.sol): The main proxy factory contract to create a new stablecoin
 - [**StrategiesRegistry**](./src/StrategiesRegistry.sol): The registry of all the kiln strategies available
 - [**MetaVault**](./src/MetaVault.sol): The vault holding all the collaterals + the strategies to invest them. It is the main vault the curator will interact with to add / remove strategies, rebalance them etc... It is also the receipt token of the stablecoin as an form of an OFT ERC20.
 - [**Accountant**](./src/Accountant.sol): The contract in charge of the accounting of the vault. It will calculate the value of the vault and the value of the stablecoin to provide peg stability mechanismes. The curator will interact with this contract to add new collaterals

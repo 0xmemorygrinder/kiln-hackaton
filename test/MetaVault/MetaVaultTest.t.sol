@@ -14,6 +14,7 @@ contract MetaVaultTest is Test, AccessControlTest {
     StrategiesRegistry strategiesRegistry;
     MetaVault metaVault;
     address constant LZ_MAINNET_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
+    address constant STRATEGIES_REGISTRY = 0x3Ede3eCa2a72B3aeCC820E955B36f38437D01395;
 
     function setUp() virtual public override {
         super.setUp();
@@ -23,7 +24,7 @@ contract MetaVaultTest is Test, AccessControlTest {
 
         MetaVault implem = new MetaVault();
         metaVault = MetaVault(deployProxy(address(implem), admin, ""));
-        metaVault.init(address(accessControl), LZ_MAINNET_ENDPOINT, "Test", "TST", 18);
+        metaVault.init(address(accessControl), STRATEGIES_REGISTRY, LZ_MAINNET_ENDPOINT, "Test", "TST", 18);
         uint256 role = accessControl.OPERATOR_ROLE();
         vm.prank(curator);
         accessControl.grantRoles(operator, role);

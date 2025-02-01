@@ -7,7 +7,6 @@ import { IChainlinkOracle } from "./interfaces/IChainlinkOracle.sol";
 import { ERC20 } from "solady/tokens/ERC20.sol";
 import { UtilsLib } from "morpho/libraries/UtilsLib.sol";
 
-
 /// @title Accountant contract
 /// @notice Contract to manage the minting and burning of collateral tokens withh peg mechanisms
 /// @author 0xtekgrinder
