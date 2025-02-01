@@ -10,10 +10,10 @@ import { AAccessControl } from "./utils/AAccessControl.sol";
 import { Initializable } from "solady/utils/Initializable.sol";
 import { AccessControl } from "./AccessControl.sol";
 
-/// @title Wrapper contract
-/// @notice Contract to wrap a boring vault and auto compound the profits
+/// @title Staking contract
+/// @notice Contract to stake meta vault tokens and earn rewards
 /// @author 0xtekgrinder
-contract Wrapper is ERC4626, ReentrancyGuard, AAccessControl, Initializable  {
+contract Staking is ERC4626, ReentrancyGuard, AAccessControl, Initializable {
     using SafeTransferLib for address;
     using UtilsLib for uint256;
 
@@ -73,7 +73,7 @@ contract Wrapper is ERC4626, ReentrancyGuard, AAccessControl, Initializable  {
         address definitiveAccessControl,
         string memory definitiveName,
         string memory definitiveSymbol
-    ) initializer external {
+    ) external initializer {
         _initAAccessControl(definitiveAccessControl);
 
         _asset = AccessControl(definitiveAccessControl).metaVault();

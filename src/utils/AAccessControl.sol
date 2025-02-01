@@ -4,19 +4,11 @@ pragma solidity 0.8.28;
 import "./Errors.sol";
 import { AccessControl } from "../AccessControl.sol";
 
-
 abstract contract AAccessControl {
     address public accessControl;
 
     modifier onlyTreasury() {
         if (!AccessControl(accessControl).isTreasury(msg.sender)) {
-            revert UnauthorizedAccess();
-        }
-        _;
-    }
-
-    modifier onlyTeller() {
-        if (!AccessControl(accessControl).isTeller(msg.sender)) {
             revert UnauthorizedAccess();
         }
         _;
@@ -37,7 +29,8 @@ abstract contract AAccessControl {
     }
 
     modifier onlyOperatorOrCurator() {
-        if (!AccessControl(accessControl).isOperator(msg.sender) && !AccessControl(accessControl).isCurator(msg.sender)) {
+        if (!AccessControl(accessControl).isOperator(msg.sender) && !AccessControl(accessControl).isCurator(msg.sender))
+        {
             revert UnauthorizedAccess();
         }
         _;
@@ -50,8 +43,18 @@ abstract contract AAccessControl {
         _;
     }
 
+    modifier onlyTeller() {
+        if (!AccessControl(accessControl).isTeller(msg.sender)) {
+            revert UnauthorizedAccess();
+        }
+        _;
+    }
+
     modifier onlyMetaVaultOrCuratorOrOperator() {
-        if (!AccessControl(accessControl).isMetaVault(msg.sender) && !AccessControl(accessControl).isCurator(msg.sender) && !AccessControl(accessControl).isOperator(msg.sender)) {
+        if (
+            !AccessControl(accessControl).isMetaVault(msg.sender) && !AccessControl(accessControl).isCurator(msg.sender)
+                && !AccessControl(accessControl).isOperator(msg.sender)
+        ) {
             revert UnauthorizedAccess();
         }
         _;
