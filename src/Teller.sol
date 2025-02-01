@@ -20,12 +20,11 @@ contract Teller is AAccessControl, Initializable {
     function deposit(
         address asset,
         uint256 amount,
-        address from,
         address to
     ) external returns (uint256) {
         address metaVault = getMetaVault();
         uint256 mintAmount = Accountant(getAccountant()).mint(asset, amount);
-        IMetaVault(metaVault).deposit(asset, mintAmount, amount, from, to);
+        IMetaVault(metaVault).deposit(asset, mintAmount, amount, msg.sender, to);
 
         return mintAmount;
     }
@@ -33,7 +32,6 @@ contract Teller is AAccessControl, Initializable {
     function withdraw(
         address asset,
         uint256 amount,
-        address from,
         address to
     ) external returns (uint256) {
         address metaVault = getMetaVault();
@@ -41,7 +39,7 @@ contract Teller is AAccessControl, Initializable {
             asset,
             amount
         );
-        IMetaVault(metaVault).withdraw(asset, amount, transferAmount, from, to);
+        IMetaVault(metaVault).withdraw(asset, amount, transferAmount, msg.sender, to);
 
         return transferAmount;
     }
@@ -49,7 +47,6 @@ contract Teller is AAccessControl, Initializable {
     function depositAndBridge(
         address asset,
         uint256 amount,
-        address from,
         address to,
         SendParam memory sendParam,
         MessagingFee memory fee
@@ -60,7 +57,7 @@ contract Teller is AAccessControl, Initializable {
             asset,
             mintAmount,
             amount,
-            from,
+            msg.sender,
             address(this)
         );
 
