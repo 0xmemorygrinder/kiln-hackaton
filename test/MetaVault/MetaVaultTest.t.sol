@@ -122,7 +122,7 @@ contract MetaVaultTest is Test, AccessControlTest {
         vm.prank(operator);
         metaVault.rebalance(address(0), AAVE_VAULT_USDC, amount);
 
-        assertEq(metaVault.depositedAssets(AAVE_VAULT_USDC), amount);
+        assertEq(metaVault.depositedAssets(USDC), amount);
         assertEq(ERC20(USDC).balanceOf(address(metaVault)), 0);
     }
 

@@ -62,7 +62,6 @@ contract Teller is AAccessControl, Initializable {
         );
 
         sendParam.amountLD = mintAmount;
-        sendParam.minAmountLD = mintAmount;
 
         IOFT(metaVault).send{ value: msg.value }(
             sendParam,

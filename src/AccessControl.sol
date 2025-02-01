@@ -119,6 +119,14 @@ contract AccessControl is OwnableRoles, Initializable {
         return metaVault;
     }
 
+    function getAccountant() public view returns (address) {
+        return accountant;
+    }
+
+    function getTeller() public view returns (address) {
+        return teller;
+    }
+
     /**
      * @notice Check if the account is the operator
      * @param account The account to check

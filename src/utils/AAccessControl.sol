@@ -69,11 +69,11 @@ abstract contract AAccessControl {
     }
 
     function getAccountant() public view returns (address) {
-        return AccessControl(accessControl).accountant();
+        return AccessControl(accessControl).getAccountant();
     }
 
     function getTeller() public view returns (address) {
-        return AccessControl(accessControl).teller();
+        return AccessControl(accessControl).getTeller();
     }
 
     function getOwner() public view returns (address) {
