@@ -11,7 +11,7 @@ interface IMetaVault {
     uint256 weight;
   }
 
-  function deposit(address asset, uint256 amount, address from, address to) external;
+  function deposit(address asset, uint256 mintAmount, uint256 amount, address from, address to) external;
 
-  function withdraw(address asset, uint256 amount, address from, address to) external;
+  function withdraw(address asset, uint256 burnAmount, uint256 amount, address from, address to) external;
 }

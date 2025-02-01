@@ -64,4 +64,8 @@ abstract contract AAccessControl {
     function getMetaVault() public view returns (address) {
         return AccessControl(accessControl).metaVault();
     }
+
+    function getAccountant() public view returns (address) {
+        return AccessControl(accessControl).accountant();
+    }
 }

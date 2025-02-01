@@ -54,14 +54,14 @@ contract MetaVault is IMetaVault, OFTUpgradeable, AAccessControl {
   /****************************************************
   *                TELLER FUNCTIONS                   *
   ****************************************************/
-  function deposit(address asset, uint256 amount, address from, address to) external override onlyTeller  {
+  function deposit(address asset, uint256 mintAmount, uint256 amount, address from, address to) external override onlyTeller  {
     SafeTransferLib.safeTransferFrom(asset, from, address(this), amount);
-    _mint(to, amount);
+    _mint(to, mintAmount);
   }
 
-  function withdraw(address asset, uint256 amount, address from, address to) external override onlyTeller {
-    SafeTransferLib.safeTransfer(asset, to, amount);
-    _burn(from, amount);
+  function withdraw(address asset, uint256 burnAmount,  uint256 transferAmount, address from, address to) external override onlyTeller {
+    SafeTransferLib.safeTransfer(asset, to, transferAmount);
+    _burn(from, burnAmount);
   }
 
   /****************************************************
