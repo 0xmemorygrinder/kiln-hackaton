@@ -53,4 +53,8 @@ abstract contract AAccessControl {
     function _initAAccessControl(address definitiveAccessControl) internal {
         accessControl = definitiveAccessControl;
     }
+
+    function getMetaVault() public view returns (address) {
+        return AccessControl(accessControl).metaVault();
+    }
 }
