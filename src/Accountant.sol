@@ -5,6 +5,8 @@ import "./utils/AAccessControl.sol";
 import { Initializable } from "solady/utils/Initializable.sol";
 import { IChainlinkOracle } from "./interfaces/IChainlinkOracle.sol";
 import { ERC20 } from "solady/tokens/ERC20.sol";
+import { UtilsLib } from "morpho/libraries/UtilsLib.sol";
+
 
 /// @title Accountant contract
 /// @notice Contract to manage the minting and burning of collateral tokens withh peg mechanisms
@@ -39,6 +41,13 @@ contract Accountant is AAccessControl, Initializable {
                                  STRUCTS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Struct to store the parameters of a collateral
+     * @param burnFee The burn fee of the collateral if bound is reached
+     * @param mintFee The mint fee of the collateral if bound is reached
+     * @param burnBound The burn bound of the collateral
+     * @param mintBound The mint bound of the collateral
+     */
     struct CollateralsParameters {
         uint256 burnFee;
         uint256 mintFee;
@@ -50,10 +59,25 @@ contract Accountant is AAccessControl, Initializable {
                           MUTABLE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice The collaterals in the system
+     */
     mapping(address => bool) public isCollateral;
+    /**
+     * @notice The oracles of each collateral
+     */
     mapping(address => address) public collateralOracles;
+    /**
+     * @notice The parameters of each collateral
+     */
     mapping(address => CollateralsParameters) public collateralsParameters;
+    /**
+     * @notice The amount of tokens minted for each collateral
+     */
     mapping(address => uint256) public collateralsMinted;
+    /**
+     * @notice The total amount of tokens minted
+     */
     uint256 public totalMinted;
 
     /*//////////////////////////////////////////////////////////////
@@ -90,52 +114,82 @@ contract Accountant is AAccessControl, Initializable {
 
         uint256 collateralMinted = collateralsMinted[collateral];
         CollateralsParameters memory parameters = collateralsParameters[collateral];
-        if (totalMinted * 100 / collateralMinted > parameters.mintBound) {
+        if (collateralMinted != 0 && totalMinted * 10000 / collateralMinted > parameters.mintBound) {
             price -= price * parameters.mintFee / 10_000;
         }
         return price;
     }
 
+    /**
+     * @notice Get the burn rate of a collateral
+     * @param collateral The address of the collateral
+     * @return The burn rate of the collateral
+     */
     function getBurnRate(address collateral) public view returns (uint256) {
         if (!isCollateral[collateral]) {
             revert CollateralDoesNotExist();
         }
 
         uint256 price = _castUint256(IChainlinkOracle(collateralOracles[collateral]).latestAnswer());
-        uint8 vaultDecimals = ERC20(getMetaVault()).decimals();
-        uint8 collateralDecimals = IChainlinkOracle(collateralOracles[collateral]).decimals();
+        uint8 collateralDecimals = ERC20(collateral).decimals();
+        uint8 oracleDecimals = IChainlinkOracle(collateralOracles[collateral]).decimals();
 
-        price = _scaleDecimals(price, collateralDecimals, vaultDecimals);
-
-        // In case of premium over the collateral, burn 1:1
-        if (price < 10 ** vaultDecimals) {
-            price = 10 ** vaultDecimals;
+        if (price < 10 ** oracleDecimals) {
+            // In case of discount over the collateral, burn 1:1
+            price = 10 ** oracleDecimals;
+        } else {
+            // In case of premium over the collateral, take the discount and give to the user a bit less
+            uint256 difference = price - 10 ** oracleDecimals;
+            price = price - difference;
         }
 
         uint256 collateralMinted = collateralsMinted[collateral];
         CollateralsParameters memory parameters = collateralsParameters[collateral];
-        if (totalMinted * 100 / collateralMinted < parameters.burnBound) {
+        if (collateralMinted != 0 && totalMinted * 10000 / collateralMinted < parameters.burnBound) {
             price -= price * parameters.burnFee / 10_000;
         }
-        return price;
+
+        return _scaleDecimals(price, oracleDecimals, collateralDecimals);
     }
 
+    /**
+     * @notice Get the amount of tokens minted for a collateral amount
+     * @param collateral The address of the collateral
+     * @param amount The amount of collateral
+     * @return The amount of tokens minted
+     */
     function quoteMint(address collateral, uint256 amount) public view returns (uint256) {
         uint256 mintRate = getMintRate(collateral);
-        uint256 vaultDecimals = ERC20(getMetaVault()).decimals();
-        return amount * mintRate / 10 ** vaultDecimals;
+        uint8 vaultDecimals = ERC20(getMetaVault()).decimals();
+        uint8 collateralDecimals = ERC20(collateral).decimals();
+        amount = _scaleDecimals(amount, collateralDecimals, vaultDecimals);
+        return amount * mintRate / (10 ** vaultDecimals);
     }
 
+    /**
+     * @notice Get the amount of collateral to receive for a token amount
+     * @param collateral The address of the collateral
+     * @param amount The amount of tokens
+     * @return The amount of collateral to receive
+     */
     function quoteBurn(address collateral, uint256 amount) public view returns (uint256) {
         uint256 burnRate = getBurnRate(collateral);
-        uint256 vaultDecimals = ERC20(getMetaVault()).decimals();
-        return amount * burnRate / 10 ** vaultDecimals;
+        uint8 vaultDecimals = ERC20(getMetaVault()).decimals();
+        uint8 collateralDecimals = ERC20(collateral).decimals();
+        amount = _scaleDecimals(amount, vaultDecimals, collateralDecimals);
+        return amount * burnRate / (10 ** collateralDecimals);
     }
 
     /*//////////////////////////////////////////////////////////////
                           TELLER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Mint new tokens
+     * @param collateral The address of the collateral
+     * @param amount The amount of collateral to mint
+     * @return The amount of tokens minted
+     */
     function mint(address collateral, uint256 amount) external onlyTeller returns (uint256) {
         uint256 mintAmount = quoteMint(collateral, amount);
 
@@ -145,13 +199,17 @@ contract Accountant is AAccessControl, Initializable {
         return mintAmount;
     }
 
+    /**
+     * @notice Burn tokens
+     * @param collateral The address of the collateral to receive
+     * @param amount The amount of tokens to burn
+     * @return The amount of collateral to receive
+     */
     function burn(address collateral, uint256 amount) external onlyTeller returns (uint256) {
-        uint256 burnAmount = quoteBurn(collateral, amount);
+        collateralsMinted[collateral] = UtilsLib.zeroFloorSub(collateralsMinted[collateral], amount);
+        totalMinted = UtilsLib.zeroFloorSub(totalMinted, amount);
 
-        collateralsMinted[collateral] -= burnAmount;
-        totalMinted -= burnAmount;
-
-        return burnAmount;
+        return quoteBurn(collateral, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -286,7 +344,11 @@ contract Accountant is AAccessControl, Initializable {
             return amount;
         }
 
-        return amount * (10 ** (to - from));
+        if (from > to) {
+            return amount / (10 ** (from - to));
+        } else {
+            return amount * (10 ** (to - from));
+        }
     }
 
     function _castUint256(int256 value) internal pure returns (uint256) {

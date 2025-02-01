@@ -2,11 +2,11 @@
 pragma solidity 0.8.28;
 
 import { Accountant } from "../../src/Accountant.sol";
-import "../AccessControl/AccessControlTest.t.sol";
+import "../MetaVault/MetaVaultTest.t.sol";
 import { IChainlinkOracle } from "../../src/interfaces/IChainlinkOracle.sol";
 import "forge-std/Test.sol";
 
-contract AccountantTest is Test, AccessControlTest {
+contract AccountantTest is Test, MetaVaultTest {
     Accountant accountant;
 
     function setUp() public override {
@@ -175,8 +175,66 @@ contract AccountantTest is Test, AccessControlTest {
         vm.prank(curator);
         accountant.addCollateral(USDC, USDC_ORACLE, 100, 100, 1000, 8000);
 
+        vm.mockCall(address(accessControl), AccessControl.getMetaVault.selector, abi.encode(metaVault));
         uint256 latestAnswer = uint256(IChainlinkOracle(USDC_ORACLE).latestAnswer());
 
-        assertEq(accountant.getMintRate(USDC), latestAnswer);
+        assertEq(accountant.getMintRate(USDC), latestAnswer * 1e10);
+
+        vm.prank(TELLER);
+        assertEq(accountant.mint(USDC, 1e6), latestAnswer * 1e10);
+
+        assertEq(accountant.totalMinted(), latestAnswer * 1e10);
+        assertEq(accountant.collateralsMinted(USDC), latestAnswer * 1e10);
+    }
+
+    function test_GetMintRate_BoundReached() public {
+        vm.prank(curator);
+        accountant.addCollateral(USDC, USDC_ORACLE, 100, 100, 1000, 8000);
+
+        vm.mockCall(address(accessControl), AccessControl.getMetaVault.selector, abi.encode(metaVault));
+        vm.prank(TELLER);
+        accountant.mint(USDC, 1e6);
+
+        uint256 latestAnswer = uint256(IChainlinkOracle(USDC_ORACLE).latestAnswer());
+
+        assertEq(accountant.getMintRate(USDC), (latestAnswer * 1e10) * 9900 / 10000);
+
+        vm.prank(TELLER);
+        assertEq(accountant.mint(USDC, 1e6), (latestAnswer * 1e10) * 9900 / 10000);
+    }
+
+    function test_GetBurnRate_Positive() public {
+        vm.prank(curator);
+        accountant.addCollateral(USDC, USDC_ORACLE, 100, 100, 1000, 8000);
+
+        vm.mockCall(address(accessControl), AccessControl.getMetaVault.selector, abi.encode(metaVault));
+
+        vm.prank(TELLER);
+        accountant.mint(USDC, 1e6);
+
+        assertEq(accountant.getBurnRate(USDC), 1e6);
+
+        vm.prank(TELLER);
+        assertEq(accountant.burn(USDC, 1e18), 1e6);
+    }
+
+    function test_GetBurnRate_Negative() public {
+        vm.prank(curator);
+        accountant.addCollateral(USDC, USDC_ORACLE, 100, 100, 1000, 8000);
+
+        vm.mockCall(address(accessControl), AccessControl.getMetaVault.selector, abi.encode(metaVault));
+
+        vm.mockCall(USDC_ORACLE, IChainlinkOracle.latestAnswer.selector, abi.encode(0.99e8));
+
+        vm.prank(TELLER);
+        accountant.mint(USDC, 1e6);
+
+        assertEq(accountant.getBurnRate(USDC), 1e6);
+
+        vm.prank(TELLER);
+        assertEq(accountant.burn(USDC, 1e18), 1e6);
+
+        assertEq(accountant.totalMinted(), 0);
+        assertEq(accountant.collateralsMinted(USDC), 0);
     }
 }
