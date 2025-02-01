@@ -7,7 +7,7 @@ import { SafeTransferLib } from "solady/utils/SafeTransferLib.sol";
 import { ERC20 } from "solady/tokens/ERC20.sol";
 import { OFTUpgradeable } from "./lib/lz-oft-upgradeable/OFTUpgradeable.sol";
 import { IMetaVault } from "./interfaces/IMetaVault.sol";
-import { AAccessControl } from "./utils/AAccessControl.sol";
+import { AAccessControl, AccessControl } from "./utils/AAccessControl.sol";
 
 contract MetaVault is IMetaVault, OFTUpgradeable, AAccessControl {
   error Unauthorized();
@@ -37,9 +37,11 @@ contract MetaVault is IMetaVault, OFTUpgradeable, AAccessControl {
     string memory _symbol,
     uint8 _decimals
   ) external initializer {
-    __OFT_init(_lzEndpoint, _name, _symbol, owner());
     _initAAccessControl(_accessControl);
+    address curator = AccessControl(_accessControl).curator();
+
     decimalsNumber = _decimals;
+    __OFT_init(_lzEndpoint, _name, _symbol, curator);
     // TODO add other variables + set isStrategy for each strategy
   }
 

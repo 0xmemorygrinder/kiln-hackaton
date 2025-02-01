@@ -28,7 +28,7 @@ contract MainnetTest is BaseTest {
     }
 
     function fork() public {
-        vm.createSelectFork(vm.rpcUrl("mainnet"), 17_544_699); // Change the block number if needed
+        vm.createSelectFork(vm.rpcUrl("mainnet"), 21752040); // Change the block number if needed
     }
 
     function fork(uint256 blockNumber) public {

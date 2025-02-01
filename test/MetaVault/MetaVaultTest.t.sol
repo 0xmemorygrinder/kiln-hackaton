@@ -10,7 +10,7 @@ contract MetaVaultTest is Test, AccessControlTest {
     MetaVault metaVault;
     address constant LZ_MAINNET_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
 
-    function setUp() public override {
+    function setUp() virtual public override {
         super.setUp();
 
         MetaVault implem = new MetaVault();
@@ -18,7 +18,7 @@ contract MetaVaultTest is Test, AccessControlTest {
         metaVault.init(address(accessControl), LZ_MAINNET_ENDPOINT, "Test", "TST", 18);
     }
 
-    function test_Init_normal() public view override {
+    function test_Init_normal() public view virtual override {
         assertEq(metaVault.accessControl(), address(accessControl));
     }
 }
