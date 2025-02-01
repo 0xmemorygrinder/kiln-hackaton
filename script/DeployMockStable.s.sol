@@ -39,6 +39,8 @@ contract DeployMockStable is Script {
         console.log("MetaVault", metaVault);
         console.log("AccessControl", accessControl);
 
+        AccessControl(accessControl).grantRoles(deployer, AccessControl(accessControl).OPERATOR_ROLE());
+
         Accountant(accountant).addCollateral(USDC, USDC_ORACLE, 0, 0, 0, 10000);
         Accountant(accountant).addCollateral(USDT, USDT_ORACLE, 0, 0, 0, 10000);
 
