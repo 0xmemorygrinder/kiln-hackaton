@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { Initializable } from "solady/utils/Initializable.sol";
 import { ERC4626 } from "solady/tokens/ERC4626.sol";
 import { SafeTransferLib } from "solady/utils/SafeTransferLib.sol";
+import { ERC20 } from "solady/tokens/ERC20.sol";
 import { OFTUpgradeable } from "./lib/lz-oft-upgradeable/OFTUpgradeable.sol";
 import { IMetaVault } from "./interfaces/IMetaVault.sol";
 import { AAccessControl } from "./utils/AAccessControl.sol";
@@ -87,35 +88,23 @@ contract MetaVault is IMetaVault, OFTUpgradeable, AAccessControl {
   }
 
   function _depositInStrategy(address strategy, address asset, uint256 amount) internal {
-    _ensureStrategyLimits(strategy, asset, amount);
+    _ensureStrategyDepositBounds(strategy, asset, amount);
     depositedAssets[strategy] += amount;
     ERC4626(strategy).deposit(amount, address(this));
   }
 
-  function _ensureStrategyWithdrawBounds(address strategy, address asset, uint256 removingAmount) internal {
+  function _ensureStrategyDepositBounds(address strategy, address asset, uint256 addingAmount) internal view {
     IMetaVault.Bound memory bounds = strategiesBounds[strategy];
     uint256 totalDepositedStrategy = depositedAssetsByStrategy[asset][strategy];
     uint256 totalDeposited = depositedAssets[asset];
-    uint256 newStrategyDeposit = totalDepositedStrategy - newAmount;
-    uint256 lowerBound = bounds.lower * totalDeposited / BPS_UNIT;
-
-    if (newTotalAssets < lowerBound) {
-      revert InvalidRebalance();
-    }
-  }
-
-  function _ensureStrategyDepositBounds(address strategy, address asset, uint256 addingAmount) internal {
-    IMetaVault.Bound memory bounds = strategiesBounds[strategy];
-    uint256 totalDepositedStrategy = depositedAssetsByStrategy[asset][strategy];
-    uint256 totalDeposited = depositedAssets[asset];
-    uint256 newStrategyDeposit = totalDepositedStrategy + newAmount;
+    uint256 selfBalance = ERC20(asset).balanceOf(address(this));
+    uint256 newTotalAssets = totalDepositedStrategy + addingAmount;
     uint256 upperBound = bounds.upper * totalDeposited / BPS_UNIT;
+    uint256 bufferBound = (BPS_UNIT - strategiesAssetsBuffers[asset]) * (totalDeposited + selfBalance) / BPS_UNIT;
 
-    if (newTotalAssets > upperBound) {
+    if (newTotalAssets > upperBound || newTotalAssets > bufferBound) {
       revert InvalidRebalance();
     }
-
-    if 
   }
 
   function _removeFromStrategy(address strategy, address asset, uint256 amount) internal returns (uint256) {
@@ -131,6 +120,18 @@ contract MetaVault is IMetaVault, OFTUpgradeable, AAccessControl {
     _ensureStrategyWithdrawBounds(strategy, asset, ownedRedeemed);
 
     return ownedRedeemed;
+  }
+
+  function _ensureStrategyWithdrawBounds(address strategy, address asset, uint256 removingAmount) internal view {
+    IMetaVault.Bound memory bounds = strategiesBounds[strategy];
+    uint256 totalDepositedStrategy = depositedAssetsByStrategy[asset][strategy];
+    uint256 totalDeposited = depositedAssets[asset];
+    uint256 newTotalAssets = totalDepositedStrategy - removingAmount;
+    uint256 lowerBound = bounds.lower * totalDeposited / BPS_UNIT;
+
+    if (newTotalAssets < lowerBound) {
+      revert InvalidRebalance();
+    }
   }
 
   function shareRevenue(address asset) public onlyOperator {
@@ -188,5 +189,9 @@ contract MetaVault is IMetaVault, OFTUpgradeable, AAccessControl {
 
   function setMintAllowed(bool allowed) external onlyOwner {
     mintAllowed = allowed;
+  }
+
+  function setAssetBuffer(address asset, uint256 buffer) external onlyOwner {
+    strategiesAssetsBuffers[asset] = buffer;
   }
 }
