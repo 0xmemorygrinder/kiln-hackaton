@@ -47,4 +47,8 @@ contract AccessControl is OwnableRoles, Initializable {
     function isMetaVault(address account) external view returns (bool) {
         return account == metaVault;
     }
+
+    function isTeller(address account) external view returns (bool) {
+        return account == teller;
+    }
 }

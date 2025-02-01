@@ -15,6 +15,13 @@ abstract contract AAccessControl {
         _;
     }
 
+    modifier onlyTeller() {
+        if (!AccessControl(accessControl).isTeller(msg.sender)) {
+            revert UnauthorizedAccess();
+        }
+        _;
+    }
+
     modifier onlyOperator() {
         if (!AccessControl(accessControl).isOperator(msg.sender)) {
             revert UnauthorizedAccess();
