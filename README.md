@@ -37,12 +37,13 @@ The flow is as follows:
 
 ## Contracts
 
-- **Factory**: The main factory contract to create a new stablecoin
-- **StrategiesRegistry**: The registry of all the kiln strategies available
-- **MetaVault**: The vault holding all the collaterals + the strategies to invest them. It is the main vault the curator will interact with to add / remove strategies, rebalance them etc... It is also the receipt token of the stablecoin as an form of an OFT ERC20.
-- **Accountant**: The contract in charge of the accounting of the vault. It will calculate the value of the vault and the value of the stablecoin to provide peg stability mechanismes. The curator will interact with this contract to add new collaterals
-- **Teller**: The contract in charge of minting / burning the stablecoin. It will interact with the vault to mint / burn the stablecoin and the accountant to get the value of the collateral to mint / burn the stablecoin
-- **Staking**: The contract in charge of the staking mechanisme. It will redistribute the yield of the vault to the stablecoin holders using a vesting mechanism as an ERC4626 for maximum composability
+- [**Factory**](./src/Factory.sol): The main factory contract to create a new stablecoin
+- [**StrategiesRegistry**](./src/StrategiesRegistry.sol): The registry of all the kiln strategies available
+- [**MetaVault**](./src/MetaVault.sol): The vault holding all the collaterals + the strategies to invest them. It is the main vault the curator will interact with to add / remove strategies, rebalance them etc... It is also the receipt token of the stablecoin as an form of an OFT ERC20.
+- [**Accountant**](./src/Accountant.sol): The contract in charge of the accounting of the vault. It will calculate the value of the vault and the value of the stablecoin to provide peg stability mechanismes. The curator will interact with this contract to add new collaterals
+- [**Teller**](./src/Teller.sol): The contract in charge of minting / burning the stablecoin. It will interact with the vault to mint / burn the stablecoin and the accountant to get the value of the collateral to mint / burn the stablecoin
+- [**Staking**](./src/Staking.sol): The contract in charge of the staking mechanisme. It will redistribute the yield of the vault to the stablecoin holders using a vesting mechanism as an ERC4626 for maximum composability
+- [**AccessControl**](./src/AccessControl.sol): The contract in charge of the access control of the factory. it also stores the list of all the other stablecoins created by the factory
 
 
 
