@@ -25,7 +25,7 @@ The flow is as follows:
 
 ## Features
 
-- Peg stability mechanismes
+- Peg stability mechanisms
 - Multichain by default using LayerZero
 - Whitelabel, everyone can deploy their own stablecoin
 - Staking contract to redistribue the yield to the stablecoin holders

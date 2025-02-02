@@ -18,6 +18,7 @@ contract DeployMockStable is Script {
     address constant USDT_ORACLE = 0x3E7d1eAB13ad0104d2750B8863b489D65364e32D;
     address constant FACTORY = 0xA343B1FC2897b8C49A72A9A0B2675cB9c7664e8c;
     address constant ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
+    address constant PEER = 0x1a44076050125825900e736c501f859c50fE728c;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -52,6 +53,8 @@ contract DeployMockStable is Script {
         MetaVault(metaVault).setStrategyBounds(AAVE_VAULT_USDT, 0, 10000);
         MetaVault(metaVault).addStrategy(MORPHO_VAULT_USDT);
         MetaVault(metaVault).setStrategyBounds(MORPHO_VAULT_USDT, 0, 10000);
+
+        MetaVault(metaVault).setPeer(30110, bytes32(bytes20(uint160(PEER))));
 
         MetaVault(metaVault).setAssetBuffer(USDC, 1000);
         MetaVault(metaVault).setAssetBuffer(USDT, 1000);

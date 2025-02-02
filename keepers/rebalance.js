@@ -1,7 +1,9 @@
-import { createWalletClient, erc20Abi, http, publicActions, zeroAddress } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { mainnet } from 'viem/chains'
-import 'dotenv/config'
+
+const { createWalletClient, erc20Abi, http, publicActions, zeroAddress } = require('viem')
+const { privateKeyToAccount } = require('viem/accounts')
+const { mainnet } = require('viem/chains')
+const dotenv = require('dotenv')
+dotenv.config()
 
 const MetaVaultAbi = [
     {
@@ -2157,10 +2159,10 @@ const MetaVaultAbi = [
         "name": "UnauthorizedAccess",
         "inputs": []
     }
-] as const;
-export const metaVaultAddress = "0x8a5005c342893C8E70387ff9ED5D8e9F8c5E5bBA";
+];
+const metaVaultAddress = "0x8a5005c342893C8E70387ff9ED5D8e9F8c5E5bBA";
 
-const config: { [key: string]: string[] } = {
+const config = {
     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": [
         "0x2db0B0fa84C3c8B342183FD0B777C521ec054325",
         "0x50913b45F278c39c8A7925b3C31DD88B95fb1AA2"
@@ -2177,35 +2179,36 @@ const BPS = 10000n;
         throw new Error('PRIVATE_KEY is required')
     }
 
-    const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`)
+    const account = privateKeyToAccount(process.env.PRIVATE_KEY)
  
     const client = createWalletClient({ 
       account,
       chain: mainnet,
-      transport: http()
+      transport: http('http://localhost:8545')
     }).extend(publicActions);
 
     for (const collateral in config) {
+        console.log(`Computing rebalance for ${collateral}`);
         const strategies = config[collateral];
         const collateralBalance = await client.readContract({
-            address: collateral as `0x${string}`,
+            address: collateral,
             functionName: 'balanceOf',
             abi: erc20Abi,
             args: [metaVaultAddress ]
         });
         const buffer = await client.readContract({
-            address: metaVaultAddress as `0x${string}`,
+            address: metaVaultAddress,
             functionName: 'strategiesAssetsBuffers',
             abi: MetaVaultAbi,
-            args: [collateral as `0x${string}`]
+            args: [collateral]
         });
         let totalStrategyBalance = 0n;
         for (const strategy of strategies) {
             const strategyBalance = await client.readContract({
-                address: metaVaultAddress as `0x${string}`,
+                address: metaVaultAddress,
                 functionName: 'depositedAssetsByStrategy',
                 abi: MetaVaultAbi,
-                args: [collateral as `0x${string}`, strategy as `0x${string}`]
+                args: [collateral, strategy]
             });
             totalStrategyBalance += strategyBalance;
         }
@@ -2223,23 +2226,26 @@ const BPS = 10000n;
         const totalBalance = totalStrategyBalance + BigInt(collateralBalance);
         const bufferShare = (BigInt(collateralBalance) * BPS) / totalBalance;
 
+        console.log(`Buffer share for ${collateral}: ${bufferShare / 100n} %`);
         if (bufferShare < buffer) {
             const withdrawAmount = totalBalance * buffer / BPS;
             await client.writeContract({
-                address: metaVaultAddress as `0x${string}`,
+                address: metaVaultAddress,
                 functionName: 'rebalance',
                 abi: MetaVaultAbi,
-                args: [bestStrategy as `0x${string}`, zeroAddress, withdrawAmount]
+                args: [bestStrategy, zeroAddress, withdrawAmount]
             });
+            console.log(`Withdrew ${withdrawAmount} of ${collateral} from ${bestStrategy}`);
         } else {
             // compute the amount to deposit while maintaining the buffer
             const toDepositAmount = totalBalance * (BPS - buffer) / BPS;
             await client.writeContract({
-                address: metaVaultAddress as `0x${string}`,
+                address: metaVaultAddress,
                 functionName: 'rebalance',
                 abi: MetaVaultAbi,
-                args: [zeroAddress, bestStrategy as `0x${string}`, toDepositAmount]
+                args: [zeroAddress, bestStrategy, toDepositAmount]
             });
+            console.log(`Deposited ${toDepositAmount} of ${collateral} to ${bestStrategy}`);
         }
     }
 })();
