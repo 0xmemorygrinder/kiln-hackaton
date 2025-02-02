@@ -11,34 +11,118 @@ import { AAccessControl, AccessControl } from "./utils/AAccessControl.sol";
 import { Allowance } from "./utils/Allowance.sol";
 import { StrategiesRegistry } from "./StrategiesRegistry.sol";
 
+/// @title MetaVault
+/// @notice This contract manages the strategies and the assets of the vault and issues the stablecoin tokens
+/// @author 0xMemoryGrinder and 0xTekGrinder
 contract MetaVault is OFTUpgradeable, AAccessControl {
-  error Unauthorized();
+  /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+  /**
+   * @notice Error emitted when the strategy is invalid
+   * @param strategy The address of the strategy that is invalid
+   */
   error InvalidStrategy(address strategy);
+
+  /**
+   * @notice Error emitted when the rebalance is invalid (the from and to strategies are the same or the assets are different)
+   */
   error InvalidRebalance();
+
+  /**
+   * @notice Error emitted when the revenue sharing is invalid (the sum of the weights is not equal to 10000)
+   */
   error InvalidRevenueSharing();
 
+  /*//////////////////////////////////////////////////////////////
+                                STRUCTS
+    //////////////////////////////////////////////////////////////*/
+
+  /**
+   * @notice Struct that represents the bounds of the strategy
+   * @param lower The lower bound of the strategy (minimum to leave in the strategy)
+   * @param upper The upper bound of the strategy (maximum to deposit in the strategy)
+   */
   struct Bound {
     uint128 lower;
     uint128 upper;
   }
+
+  /**
+   * @notice Struct that represents the revenue sharing of the asset
+   * @param recipient The address of the recipient of the revenue
+   * @param weight The weight of the revenue sharing
+   */
   struct RevenueSharing {
     address recipient;
     uint256 weight;
   }
 
   uint256 constant BPS_UNIT = 10000;
+
+  /*//////////////////////////////////////////////////////////////
+                                VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+  /**
+   * @notice The address of the strategies registry (StrategiesRegistry)
+   */
   address public strategiesRegistry;
 
+  /**
+   * @notice The array of the added strategies addresses
+   */
   address[] public strategies;
+
+  /**
+   * @notice Mapping of the strategies addresses to a validity boolean
+   */
   mapping(address => bool) public isStrategy;
+
+  /**
+   * @notice Mapping of the strategies addresses to the bounds of the strategy
+   */
   mapping(address => IMetaVault.Bound) public strategiesBounds;
+
+  /**
+   * @notice Asset address of the strategies
+   */
   mapping(address => address) public strategiesAssets;
+
+  /**
+   * @notice Revenue sharing of the assets
+   */
   mapping(address => IMetaVault.RevenueSharing[]) public assetsRevenueSharings;
+
+  /**
+   * @notice Buffer share to keep in the vault for each asset
+   */
   mapping(address => uint256) public strategiesAssetsBuffers;
+
+  /**
+   * @notice Profit on each asset
+   */
   mapping(address => uint256) public profits;
+
+  /**
+   * @notice Total owned asset deposited strategies
+   */
   mapping(address => uint256) public depositedAssets;
+
+  /**
+   * @notice Total owned asset deposited in each strategy
+   */
   mapping(address => mapping(address => uint256)) public depositedAssetsByStrategy;
+
+  /**
+   * @notice The number of decimals of the stablecoin (to be initialized)
+   */
   uint8 public decimalsNumber;
+
+  /*//////////////////////////////////////////////////////////////
+                            INITIALIZER
+    //////////////////////////////////////////////////////////////*/
 
   function init(
     address _accessControl,
@@ -69,11 +153,28 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
   /****************************************************
   *                TELLER FUNCTIONS                   *
   ****************************************************/
+
+  /**
+   * @notice Deposit the asset in the vault and mint the stablecoin tokens
+   * @param asset The address of the asset to deposit
+   * @param mintAmount The amount of stablecoin tokens to mint
+   * @param amount The amount of the asset to deposit
+   * @param from The address of the depositor
+   * @param to The address of the recipient
+   */
   function deposit(address asset, uint256 mintAmount, uint256 amount, address from, address to) external onlyTeller  {
     SafeTransferLib.safeTransferFrom(asset, from, address(this), amount);
     _mint(to, mintAmount);
   }
 
+  /**
+   * @notice Withdraw the asset from the vault and burn the stablecoin tokens
+   * @param asset The address of the asset to withdraw
+   * @param burnAmount The amount of stablecoin tokens to burn
+   * @param transferAmount The amount of the asset to transfer
+   * @param from The address of the withdrawer
+   * @param to The address of the recipient
+   */
   function withdraw(address asset, uint256 burnAmount,  uint256 transferAmount, address from, address to) external onlyTeller {
     _burn(from, burnAmount);
     SafeTransferLib.safeTransfer(asset, to, transferAmount);
@@ -83,6 +184,13 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
   *               OPERATOR FUNCTIONS                  *
   ****************************************************/
 
+  /**
+   * @notice Rebalance the assets between the strategies
+   * @param from The address of the strategy to remove the asset from (0x0 for the vault)
+   * @param to The address of the strategy to deposit the asset to (0x0 for the vault)
+   * @param amount The amount of the asset to rebalance (assets amount in case of deposit, shares amount in case of withdraw/rebalance)
+   * @return depositedShares The amount of shares deposited in the strategy
+   */
   function rebalance(address from, address to, uint256 amount) external onlyOperator returns (uint256 depositedShares) {
     // rebalance logic
     if (from != address(0) &&(!isStrategy[from] || !StrategiesRegistry(strategiesRegistry).isValidStrategy(from))) {
@@ -106,6 +214,12 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
     }
   }
 
+  /**
+   * @notice Deposit the asset in a strategy and ensure the bounds are respected
+   * @param strategy The address of the strategy to deposit the asset to
+   * @param asset The address of the asset to deposit
+   * @param amount The amount of the asset to deposit
+   */
   function _depositInStrategy(address strategy, address asset, uint256 amount) internal returns (uint256) {
     _ensureStrategyDepositBounds(strategy, asset, amount);
     depositedAssets[asset] += amount;
@@ -115,6 +229,12 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
     return ERC4626(strategy).deposit(amount, address(this));
   }
 
+  /**
+   * @notice Ensure the bounds of the strategy are respected when depositing the asset
+   * @param strategy The address of the strategy to deposit the asset to
+   * @param asset The address of the asset to deposit
+   * @param addingAmount The amount of the asset to deposit
+   */
   function _ensureStrategyDepositBounds(address strategy, address asset, uint256 addingAmount) internal view {
     IMetaVault.Bound memory bounds = strategiesBounds[strategy];
     uint256 totalDepositedStrategy = depositedAssetsByStrategy[asset][strategy];
@@ -129,6 +249,13 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
     }
   }
 
+  /**
+   * @notice Remove the asset from a strategy, ensure the bounds are respected and compute the profits
+   * @param strategy The address of the strategy to remove the asset from
+   * @param asset The address of the asset to remove
+   * @param amount The amount of the asset to remove
+   * @return ownedRedeemed The amount of owned assets removed from the strategy
+   */
   function _removeFromStrategy(address strategy, address asset, uint256 amount) internal returns (uint256) {
     uint256 dec = decimals();
     uint256 sharesBalance = ERC4626(strategy).balanceOf(address(this));
@@ -140,12 +267,18 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
 
     _ensureStrategyWithdrawBounds(strategy, asset, ownedRedeemed);
 
-      depositedAssets[asset] -= ownedRedeemed;
-    profits[strategy] += redeemed - ownedRedeemed;
+    depositedAssets[asset] -= ownedRedeemed;
+    profits[asset] += redeemed - ownedRedeemed;
 
     return ownedRedeemed;
   }
 
+  /**
+   * @notice Ensure the bounds of the strategy are respected when withdrawing the asset
+   * @param strategy The address of the strategy to withdraw the asset from
+   * @param asset The address of the asset to withdraw
+   * @param removingAmount The amount of the asset to withdraw
+   */
   function _ensureStrategyWithdrawBounds(address strategy, address asset, uint256 removingAmount) internal view {
     IMetaVault.Bound memory bounds = strategiesBounds[strategy];
     uint256 totalDepositedStrategy = depositedAssetsByStrategy[asset][strategy];
@@ -158,6 +291,9 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
     }
   }
 
+  /**
+   * @notice Share profits of the asset with the revenue sharings recipients
+   */
   function shareRevenue(address asset) public onlyOperator {
     uint256 len = assetsRevenueSharings[asset].length;
     uint256 revenue = profits[asset];
@@ -169,6 +305,9 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
     }
   }
 
+  /**
+   * @notice Share profits of multiple assets with the revenue sharings recipients
+   */
   function shareRevenues(address[] calldata assets) external onlyOperator {
     uint256 len = assets.length;
     for (uint256 i = 0; i < len; i++) {
@@ -180,10 +319,21 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
   *                     SETTERS                       *
   ****************************************************/
 
+  /**
+   * @notice Set the bounds of the strategy
+   * @param strategy The address of the strategy
+   * @param lower The lower bound of the strategy
+   * @param upper The upper bound of the strategy
+   */
   function setStrategyBounds(address strategy, uint128 lower, uint128 upper) external onlyCurator {
     strategiesBounds[strategy] = IMetaVault.Bound(lower, upper);
   }
 
+  /**
+   * @notice Set the revenue sharings of the asset
+   * @param asset The address of the asset
+   * @param newRevenueSharings The new revenue sharings of the asset
+   */
   function setRevenueSharings(address asset, IMetaVault.RevenueSharing[] calldata newRevenueSharings) external onlyCurator {
     uint256 weightsSum = 0;
 
@@ -207,6 +357,10 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
     }
   }
 
+  /**
+   * @notice Add a strategy to the vault
+   * @param strategy The address of the strategy (must be a valid erc4626 vault approved in StrategiesRegistry)
+   */
   function addStrategy(address strategy) external onlyCurator {
     if (!StrategiesRegistry(strategiesRegistry).isValidStrategy(strategy)) {
       revert InvalidStrategy(strategy);
@@ -216,6 +370,11 @@ contract MetaVault is OFTUpgradeable, AAccessControl {
     strategies.push(strategy);
   }
 
+  /**
+   * @notice Set the buffer ratio of the asset
+   * @param asset The address of the asset
+   * @param buffer The buffer ratio of the asset
+   */
   function setAssetBuffer(address asset, uint256 buffer) external onlyCurator {
     strategiesAssetsBuffers[asset] = buffer;
   }

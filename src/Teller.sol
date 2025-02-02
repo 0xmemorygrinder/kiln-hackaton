@@ -8,15 +8,30 @@ import {IMetaVault} from "./interfaces/IMetaVault.sol";
 import {AAccessControl} from "./utils/AAccessControl.sol";
 import {Accountant} from "./Accountant.sol";
 
+/// @title Teller
+/// @notice This contract is responsible for handling deposits and withdrawals of assets as well as bridging assets to other chains
+/// @author 0xMemoryGrinder
 contract Teller is AAccessControl, Initializable {
+    /****************************************************
+     *                   INITIALIZER                    *
+     ****************************************************/
+
+    /**
+     * @notice Initializes the Teller contract
+     * @param definitiveAccessControl The address of the AccessControl contract
+     */
     function init(address definitiveAccessControl) external initializer {
         _initAAccessControl(definitiveAccessControl);
     }
 
     /****************************************************
-     *                 USER FUNCTIONS                    *
+     *                 USER FUNCTIONS                   *
      ****************************************************/
 
+    /**
+     * @notice Deposit assets into the MetaVault
+     * @dev Updates the Accountant and mint on the MetaVault
+     */
     function deposit(
         address asset,
         uint256 amount,
@@ -29,6 +44,10 @@ contract Teller is AAccessControl, Initializable {
         return mintAmount;
     }
 
+    /**
+     * @notice Withdraw assets from the MetaVault
+     * @dev Updates the Accountant and burn on the MetaVault
+     */
     function withdraw(
         address asset,
         uint256 amount,
@@ -44,6 +63,10 @@ contract Teller is AAccessControl, Initializable {
         return transferAmount;
     }
 
+    /**
+     * @notice Deposit assets into the MetaVault and bridge them to another chain
+     * @dev Updates the Accountant and mint on the MetaVault then bridges the minted tokens
+     */
     function depositAndBridge(
         address asset,
         uint256 amount,
@@ -72,6 +95,10 @@ contract Teller is AAccessControl, Initializable {
         return mintAmount;
     }
 
+    /**
+     * @notice Bridge assets from the MetaVault to another chain
+     * @dev Proxy to MetaVault
+     */
     function bridge(
       SendParam memory sendParam,
       MessagingFee memory fee
@@ -87,6 +114,10 @@ contract Teller is AAccessControl, Initializable {
      *                 VIEW FUNCTIONS                    *
      ****************************************************/
 
+    /**
+     * @notice Returns the amount of asset that will be minted when depositing `amount` of `asset`
+     * @dev Proxy to Accountant  
+     */
     function quoteMint(
         address asset,
         uint256 amount
@@ -94,6 +125,10 @@ contract Teller is AAccessControl, Initializable {
         return Accountant(getAccountant()).quoteMint(asset, amount);
     }
 
+    /**
+     * @notice Returns the amount of asset that will be burned when withdrawing `amount` of `asset`
+     * @dev Proxy to Accountant
+     */
     function quoteBurn(
         address asset,
         uint256 amount
